@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AiserX: Custom Rhythm Fixed</title>
+    <style>
+        html, body {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background-color: #0b0e14;
+            color: white;
+            font-family: Arial, sans-serif;
+            display: flex; flex-direction: column;
+            overflow: hidden;
+            user-select: none; -webkit-user-select: none;
+        }
+
+        #ui-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: #111622;
+            border-bottom: 2px solid #1f293d;
+            font-weight: bold;
+            font-size: 16px;
+            flex-shrink: 0;
+            z-index: 5;
+        }
+        #score-val { color: #00ffcc; }
+        #combo-container { color: #ff007f; font-size: 18px; min-width: 80px; text-align: right; }
+
+        #game-space {
+            flex: 1;
+            position: relative;
+            background: linear-gradient(180deg, #0b0e14 0%, #121824 100%);
+            display: flex;
+        }
+
+        .track {
+            flex: 1;
+            position: relative;
+            border-right: 1px dashed rgba(255, 255, 255, 0.05);
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .track:last-child { border-right: none; }
+
+        .note {
+            position: absolute;
+            left: 5%; width: 90%;
+            height: 70px;
+            border-radius: 10px;
+            box-shadow: 0 0 15px currentColor;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+            color: rgba(255, 255, 255, 0.3);
+            z-index: 2;
+        }
+
+        .note-0 { background: linear-gradient(135deg, #ff007f, #ff409f); color: #fff; text-shadow: 0 0 5px #ff007f; }
+        .note-1 { background: linear-gradient(135deg, #00ffcc, #33ffdd); color: #000; text-shadow: 0 0 5px #00ffcc; }
+        .note-2 { background: linear-gradient(135deg, #ffcc00, #ffdd33); color: #000; text-shadow: 0 0 5px #ffcc00; }
+
+        .overlay-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #0b0e14;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        
+        .start-btn {
+            margin-top: 25px;
+            padding: 15px 40px;
+            background: #00ffcc;
+            color: black;
+            border: none;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 16px;
+            letter-spacing: 1px;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.4);
+            cursor: pointer;
+        }
+
+        .file-label {
+            background: #1f293d;
+            border: 1px dashed #00ffcc;
+            padding: 14px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #00ffcc;
+            margin-top: 10px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui-top">
+        <div>Score: <span id="score-val">0</span></div>
+        <div id="combo-container"><span id="combo-val">0</span>x 🔥</div>
+    </div>
+
+    <div id="game-space">
+        <div class="track" id="track-0" ontouchstart="triggerMiss(event)" onmousedown="triggerMiss(event)"></div>
+        <div class="track" id="track-1" ontouchstart="triggerMiss(event)" onmousedown="triggerMiss(event)"></div>
+        <div class="track" id="track-2" ontouchstart="triggerMiss(event)" onmousedown="triggerMiss(event)"></div>
+
+        <div id="start-screen" class="overlay-screen">
+            <h1 style="color: #00ffcc; margin: 0; letter-spacing: 2px;">AISERX CUSTOM</h1>
+            <p style="color: #8f9cae; font-size: 13px; text-align: center; margin: 15px 30px; line-height: 1.4;">
+                Загрузи трек с телефона.<br>Пропуск плиты или промах — смерть!
+            </p>
+            
+            <label class="file-label" id="file-status">
+                Выбрать аудиофайл 📂
+                <input type="file" id="audio-file" accept="audio/*" style="display: none;" onchange="handleFileSelect(event)">
+            </label>
+
+            <button class="start-btn" id="launch-btn" onclick="startGame(event)" style="display: none;">ПОГНАЛИ 🎧</button>
+        </div>
+
+        <div id="game-over-screen" class="overlay-screen" style="display: none;">
+            <h1 style="color: #ff007f; margin: 0;">GAME OVER 💀</h1>
+            <p id="fail-reason" style="font-size: 14px; color: #8f9cae; margin-top: 10px;">Причина...</p>
+            <p style="font-size: 18px; margin: 15px 0;">Ваш счёт: <span id="final-score" style="color:#00ffcc; font-weight:bold;">0</span></p>
+            <button class="start-btn" onclick="resetGame(event)">ПОВТОРИТЬ 🔁</button>
+        </div>
+
+        <div id="win-screen" class="overlay-screen" style="display: none;">
+            <h1 style="color: #00ffcc; margin: 0; text-shadow: 0 0 15px #00ffcc;">🎉 ТРЕК ПРОЙДЕН! 🎉</h1>
+            <p style="font-size: 22px; margin: 15px 0;">Финальный счёт: <span id="win-score" style="color:#ff007f; font-weight:bold;">0</span></p>
+            <button class="start-btn" onclick="resetGame(event)">ЕЩЕ РАЗ 🎶</button>
+        </div>
+    </div>
+
+    <script>
+        const tracks = [
+            document.getElementById('track-0'),
+            document.getElementById('track-1'),
+            document.getElementById('track-2')
+        ];
+        const gameSpace = document.getElementById('game-space');
+
+        let score = 0;
+        let combo = 0;
+        let isPlaying = false;
+        
+        let noteSpeed = 3.5; 
+        let spawnInterval = 700; 
+        let lastSpawnTime = 0;
+        let notesData = [];
+        let idCounter = 0;
+
+        let bgMusic = new Audio();
+        let audioLoaded = false;
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('file-status').innerText = "Загрузка трека... ⏳";
+
+            // Читаем файл через FileReader в формат DataURL (Base64) - самый надежный метод для мобилок
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                bgMusic.src = e.target.result;
+                bgMusic.loop = false;
+                bgMusic.preload = "auto";
+                
+                bgMusic.onended = function() {
+                    triggerWin();
+                };
+
+                document.getElementById('file-status').innerText = `🎵 ${file.name.substring(0, 15)}...`;
+                document.getElementById('launch-btn').style.display = 'block';
+                audioLoaded = true;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function startGame(e) {
+            if (e) { e.stopPropagation(); e.preventDefault(); }
+            if (!audioLoaded) return;
+
+            document.getElementById('start-screen').style.display = 'none';
+            
+            // Запуск аудио
+            bgMusic.play()
+                .then(() => {
+                    isPlaying = true;
+                    lastSpawnTime = Date.now();
+                    requestAnimationFrame(gameTick);
+                })
+                .catch(err => {
+                    alert("Браузер заблокировал звук. Нажмите ОК для принудительного старта.");
+                    isPlaying = true;
+                    lastSpawnTime = Date.now();
+                    requestAnimationFrame(gameTick);
+                });
+        }
+
+        function spawnNote() {
+            if (!isPlaying) return;
+
+            let trackIndex = Math.floor(Math.random() * 3);
+            let noteId = idCounter++;
+            
+            const noteEl = document.createElement('div');
+            noteEl.className = `note note-${trackIndex}`;
+            noteEl.style.top = '-80px';
+            noteEl.innerText = "TAP";
+            
+            const hitHandler = (ev) => {
+                ev.stopPropagation(); // Не дает событию уйти на дорожку (защита от ложного промаха)
+                ev.preventDefault();
+                hitTile(noteId);
+            };
+
+            noteEl.ontouchstart = hitHandler;
+            noteEl.onmousedown = hitHandler;
+
+            tracks[trackIndex].appendChild(noteEl);
+
+            notesData.push({
+                id: noteId,
+                element: noteEl,
+                y: -80
+            });
+        }
+
+        function gameTick() {
+            if (!isPlaying) return;
+
+            let currentTime = Date.now();
+            if (currentTime - lastSpawnTime > spawnInterval) {
+                spawnNote();
+                lastSpawnTime = currentTime;
+                
+                if (spawnInterval > 300) spawnInterval -= 5;
+                noteSpeed += 0.015;
+            }
+
+            const spaceHeight = gameSpace.clientHeight;
+
+            for (let i = notesData.length - 1; i >= 0; i--) {
+                let note = notesData[i];
+                note.y += noteSpeed;
+                note.element.style.top = note.y + 'px';
+
+                if (note.y > spaceHeight) {
+                    triggerGameOver("Вы пропустили плитку!");
+                    return;
+                }
+            }
+
+            requestAnimationFrame(gameTick);
+        }
+
+        function hitTile(id) {
+            if (!isPlaying) return;
+
+            for (let i = 0; i < notesData.length; i++) {
+                if (notesData[i].id === id) {
+                    score += 10 + Math.floor(combo / 5);
+                    combo++;
+                    
+                    notesData[i].element.remove();
+                    notesData.splice(i, 1);
+                    updateUI();
+                    break;
+                }
+            }
+        }
+
+        function triggerMiss(e) {
+            if (!isPlaying) return;
+            e.stopPropagation();
+            triggerGameOver("Промах! Нажатие мимо плитки.");
+        }
+
+        function triggerGameOver(reason) {
+            isPlaying = false;
+            bgMusic.pause();
+            
+            document.getElementById('fail-reason').innerText = reason;
+            document.getElementById('final-score').innerText = score;
+            document.getElementById('game-over-screen').style.display = 'flex';
+        }
+
+        function triggerWin() {
+            isPlaying = false;
+            notesData.forEach(n => n.element.remove());
+            notesData = [];
+
+            document.getElementById('win-score').innerText = score;
+            document.getElementById('win-screen').style.display = 'flex';
+        }
+
+        function updateUI() {
+            document.getElementById('score-val').innerText = score;
+            document.getElementById('combo-val').innerText = combo;
+        }
+
+        function resetGame(e) {
+            if (e) { e.stopPropagation(); e.preventDefault(); }
+            notesData.forEach(n => n.element.remove());
+            notesData = [];
+            
+            score = 0;
+            combo = 0;
+            noteSpeed = 3.5;
+            spawnInterval = 700;
+            
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.getElementById('win-screen').style.display = 'none';
+            updateUI();
+            
+            isPlaying = true;
+            lastSpawnTime = Date.now();
+            bgMusic.currentTime = 0;
+            bgMusic.play().catch(err => console.log(err));
+        }
+    </script>
+</body>
+</html>
