@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мега Кликер: Эволюция</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: white;
+            text-align: center;
+            font-family: Arial, sans-serif;
+            padding: 20px 15px;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        
+        h1 { 
+            color: pink; 
+            font-size: 34px; 
+            margin: 10px 0 5px 0; 
+        }
+        
+        .stats-box {
+            font-size: 16px;
+            margin-bottom: 25px;
+            color: #bbb;
+            line-height: 1.5;
+        }
+        .highlight { color: #ffca28; font-weight: bold; }
+        .rebirth-highlight { color: #51e2f5; font-weight: bold; }
+        .cups-highlight { color: #ff4757; font-weight: bold; }
+
+        /* Большая удобная кнопка для тапа в ТГ */
+        #tapBtn {
+            background-color: pink;
+            color: black;
+            font-size: 26px;
+            font-weight: bold;
+            width: 85%;
+            max-width: 280px;
+            padding: 35px 0;
+            border: none;
+            border-radius: 100px;
+            margin: 10px auto 25px auto;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 192, 203, 0.6);
+            -webkit-tap-highlight-color: transparent; 
+            display: block;
+        }
+        #tapBtn:active { transform: scale(0.92); }
+
+        #rebirthBtn {
+            display: none;
+            background-color: #51e2f5;
+            color: black;
+            font-size: 18px;
+            font-weight: bold;
+            width: 90%;
+            max-width: 320px;
+            padding: 18px 10px;
+            border: none;
+            border-radius: 15px;
+            margin: 15px auto;
+            box-shadow: 0 0 15px #51e2f5;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Удобный вертикальный магазин, прижатый к низу */
+        .shop-box {
+            margin-top: auto; 
+            border-top: 2px solid #292929;
+            padding-top: 15px;
+            width: 100%;
+        }
+        .shop-box h3 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .shop-btn {
+            background-color: #1e1e1e;
+            color: pink;
+            border: 2px solid pink;
+            width: 100%;
+            max-width: 320px;
+            padding: 16px;
+            margin: 8px auto;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            -webkit-tap-highlight-color: transparent;
+            display: block;
+            box-sizing: border-box;
+        }
+        .shop-btn:disabled {
+            border-color: #333;
+            color: #555;
+            background-color: #161616;
+            cursor: not-allowed;
+        }
+
+        .reset-btn {
+            background: none;
+            border: none;
+            color: #555;
+            font-size: 12px;
+            margin-top: 15px;
+            text-decoration: underline;
+            -webkit-tap-highlight-color: transparent;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Счёт: <span id="score">0</span> / <span id="nextLevelScore">10</span></h1>
+    
+    <div class="stats-box">
+        Уровень: <span id="level" class="highlight">1</span> | 
+        🏆 Кубки: <span id="cups" class="cups-highlight">0</span>
+        <br>
+        Перерождения: <span id="rebirths" class="rebirth-highlight">0</span> |
+        Сила тапа: +<span id="clickPower">1</span> (x<span id="multiplier">1</span>)
+    </div>
+    
+    <button id="tapBtn">ТАПАЙ ТУТ!</button>
+
+    <div>
+        <button id="rebirthBtn">✨ ПЕРЕРОЖДЕНИЕ! ✨</button>
+    </div>
+
+    <div class="shop-box">
+        <h3>Магазин прокачки (За 🏆 Кубки):</h3>
+        <button id="upgradeClick" class="shop-btn">Прокачать тап</button>
+        <button id="upgradeAuto" class="shop-btn">Авто-кликер</button>
+        
+        <button class="reset-btn" onclick="resetGame()">Сбросить весь прогресс</button>
+    </div>
+
+    <script>
+        // ЗАГРУЗКА ИЗ ПАМЯТИ ТЕЛЕФОНА
+        let score = Number(localStorage.getItem("tg_score")) || 0;        
+        let level = Number(localStorage.getItem("tg_level")) || 1;
+        let rebirths = Number(localStorage.getItem("tg_rebirths")) || 0;
+        let cups = Number(localStorage.getItem("tg_cups")) || 0; 
+        let baseClickPower = Number(localStorage.getItem("tg_basePower")) || 1;   
+        let autoPower = Number(localStorage.getItem("tg_autoPower")) || 0;    
+        let upgradeClickCost = Number(localStorage.getItem("tg_clickCost")) || 5;  
+        let upgradeAutoCost = Number(localStorage.getItem("tg_autoCost")) || 10;  
+
+        let scoreScreen = document.getElementById("score");
+        let nextLevelScoreScreen = document.getElementById("nextLevelScore");
+        let levelScreen = document.getElementById("level");
+        let rebirthScreen = document.getElementById("rebirths");
+        let cupsScreen = document.getElementById("cups");
+        let clickPowerScreen = document.getElementById("clickPower");
+        let multiplierScreen = document.getElementById("multiplier");
+        
+        let btnTap = document.getElementById("tapBtn");
+        let btnUpgradeClick = document.getElementById("upgradeClick");
+        let btnUpgradeAuto = document.getElementById("upgradeAuto");
+        let btnRebirth = document.getElementById("rebirthBtn");
+
+        // ФУНКЦИЯ СОХРАНЕНИЯ
+        function saveGame() {
+            localStorage.setItem("tg_score", score);
+            localStorage.setItem("tg_level", level);
+            localStorage.setItem("tg_rebirths", rebirths);
+            localStorage.setItem("tg_cups", cups);
+            localStorage.setItem("tg_basePower", baseClickPower);
+            localStorage.setItem("tg_autoPower", autoPower);
+            localStorage.setItem("tg_clickCost", upgradeClickCost);
+            localStorage.setItem("tg_autoCost", upgradeAutoCost);
+        }
+
+        function getRequiredScore() {
+            return level * 10;
+        }
+
+        function isLevelLocked() {
+            return level % 25 === 0;
+        }
+
+        function addScore(amount) {
+            let required = getRequiredScore();
+
+            if (isLevelLocked() && score >= required) {
+                score = required;
+                return;
+            }
+
+            score = score + amount;
+
+            while (score >= required) {
+                if (isLevelLocked() && score >= required) {
+                    score = required;
+                    break; 
+                }
+                level = level + 1;
+                cups = cups + 1; 
+                required = getRequiredScore();
+            }
+            saveGame(); // Сейв при каждом изменении счета
+        }
+
+        btnTap.onclick = function() {
+            let totalClick = baseClickPower * (rebirths + 1);
+            addScore(totalClick);
+            updateScreen();
+        };
+
+        btnUpgradeClick.onclick = function() {
+            if (cups >= upgradeClickCost) {
+                cups = cups - upgradeClickCost; 
+                baseClickPower = baseClickPower + 1;       
+                upgradeClickCost = Math.round(upgradeClickCost * 1.5); 
+                saveGame();
+                updateScreen();
+            }
+        };
+
+        btnUpgradeAuto.onclick = function() {
+            if (cups >= upgradeAutoCost) {
+                cups = cups - upgradeAutoCost; 
+                autoPower = autoPower + 2;       
+                upgradeAutoCost = Math.round(upgradeAutoCost * 1.6); 
+                saveGame();
+                updateScreen();
+            }
+        };
+
+        btnRebirth.onclick = function() {
+            let required = getRequiredScore();
+            if (isLevelLocked() && score >= required) {
+                rebirths = rebirths + 1; 
+                score = 0;               
+                level = level + 1;       
+                cups = cups + 5;         
+                saveGame();
+                updateScreen();
+            }
+        };
+
+        setInterval(function() {
+            if (autoPower > 0) {
+                addScore(autoPower * (rebirths + 1));
+                updateScreen();
+            }
+        }, 1000);
+
+        function updateScreen() {
+            let required = getRequiredScore();
+            
+            scoreScreen.innerText = score;
+            nextLevelScoreScreen.innerText = required;
+            levelScreen.innerText = level;
+            rebirthScreen.innerText = rebirths;
+            cupsScreen.innerText = cups;
+            
+            let currentMultiplier = rebirths + 1;
+            clickPowerScreen.innerText = baseClickPower * currentMultiplier;
+            multiplierScreen.innerText = currentMultiplier;
+            
+            btnUpgradeClick.innerText = "Прокачать тап (Цена: " + upgradeClickCost + " 🏆)";
+            btnUpgradeAuto.innerText = "Авто-кликер (Цена: " + upgradeAutoCost + " 🏆)";
+            
+            btnUpgradeClick.disabled = cups < upgradeClickCost;
+            btnUpgradeAuto.disabled = cups < upgradeAutoCost;
+
+            if (isLevelLocked() && score >= required) {
+                btnRebirth.style.display = "block";
+                btnRebirth.innerText = "✨ ПЕРЕРОЖДЕНИЕ! (Множитель: x" + (currentMultiplier + 1) + ") ✨";
+            } else {
+                btnRebirth.style.display = "none";
+            }
+        }
+
+        function resetGame() {
+            if (confirm("Сбросить игру и начать заново?")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        updateScreen();
+    </script>
+
+</body>
+</html>
